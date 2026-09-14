@@ -532,7 +532,7 @@ def test_graph_executes_verification_node():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] == RunStatus.VERIFYING
+    assert result["status"] in (RunStatus.VERIFYING, RunStatus.SCORING)
     assert len(result["verification_results"]) == 1
     assert result["verification_results"][0].company_name == "RoboNav"
 

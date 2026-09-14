@@ -9,6 +9,7 @@ from ..schemas.objective import AOIInput
 from ..schemas.opportunity import AOIReport, Opportunity
 from ..schemas.qualification import QualificationResult
 from ..schemas.research import ResearchResult
+from ..schemas.scoring import ScoringResult
 from ..schemas.verification import VerificationResult
 
 
@@ -21,6 +22,7 @@ class AOIState(AOIBaseModel):
     research_results: Annotated[list[ResearchResult], operator.add] = Field(default_factory=list)
     qualification_results: Annotated[list[QualificationResult], operator.add] = Field(default_factory=list)
     verification_results: Annotated[list[VerificationResult], operator.add] = Field(default_factory=list)
+    scoring_results: Annotated[list[ScoringResult], operator.add] = Field(default_factory=list)
     opportunities: Annotated[list[Opportunity], operator.add] = Field(default_factory=list)
     errors: Annotated[list[str], operator.add] = Field(default_factory=list)
     warnings: Annotated[list[str], operator.add] = Field(default_factory=list)

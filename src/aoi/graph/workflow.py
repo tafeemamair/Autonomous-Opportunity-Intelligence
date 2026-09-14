@@ -5,6 +5,7 @@ from langgraph.graph import END, START, StateGraph
 from ..agents.discovery import DiscoveryAgent
 from ..agents.qualification import QualificationAgent
 from ..agents.research import ResearchAgent
+from ..agents.scoring import ScoringAgent
 from ..agents.verification import VerificationAgent
 from ..schemas.common import RunStatus
 from ..schemas.objective import AOIInput
@@ -14,6 +15,7 @@ discovery_agent = DiscoveryAgent()
 research_agent = ResearchAgent()
 qualification_agent = QualificationAgent()
 verification_agent = VerificationAgent()
+scoring_agent = ScoringAgent()
 
 
 def discovery_node(state: AOIState) -> dict:
@@ -25,8 +27,8 @@ def research_node(state: AOIState) -> dict:
     if not state.candidates:
         return {}
     results = []
-    for candidate in state.candidates:
-        res = research_agent.research(candidate)
+    for cand in state.candidates:
+        res = research_agent.research(cand)
         results.append(res)
     return {"status": RunStatus.RESEARCHING, "research_results": results}
 
@@ -37,10 +39,10 @@ def qualification_node(state: AOIState) -> dict:
     results = []
     candidate_by_id = {c.candidate_id: c for c in state.candidates}
     for res in state.research_results:
-        candidate = candidate_by_id.get(res.candidate_id)
-        if candidate:
+        cand = candidate_by_id.get(res.candidate_id)
+        if cand:
             qual = qualification_agent.qualify(
-                candidate=candidate,
+                candidate=cand,
                 research_result=res,
                 objective=state.input.objective,
                 operator_profile=state.input.operator_profile,
@@ -71,17 +73,45 @@ def verification_node(state: AOIState) -> dict:
     return {"status": RunStatus.VERIFYING, "verification_results": results}
 
 
+def scoring_node(state: AOIState) -> dict:
+    if not state.verification_results:
+        return {}
+    results = []
+    candidate_by_id = {c.candidate_id: c for c in state.candidates}
+    research_by_id = {r.candidate_id: r for r in state.research_results}
+    qualification_by_id = {q.candidate_id: q for q in state.qualification_results}
+
+    for ver in state.verification_results:
+        candidate = candidate_by_id.get(ver.candidate_id)
+        research = research_by_id.get(ver.candidate_id)
+        qual = qualification_by_id.get(ver.candidate_id)
+        if candidate and research and qual:
+            scored = scoring_agent.score(
+                candidate=candidate,
+                research_result=research,
+                qualification_result=qual,
+                verification_result=ver,
+                objective=state.input.objective,
+                operator_profile=state.input.operator_profile,
+                constraints=state.input.constraints,
+            )
+            results.append(scored)
+    return {"status": RunStatus.SCORING, "scoring_results": results}
+
+
 def build_graph():
     builder = StateGraph(AOIState)
     builder.add_node("discovery", discovery_node)
     builder.add_node("research", research_node)
     builder.add_node("qualification", qualification_node)
     builder.add_node("verification", verification_node)
+    builder.add_node("scoring", scoring_node)
     builder.add_edge(START, "discovery")
     builder.add_edge("discovery", "research")
     builder.add_edge("research", "qualification")
     builder.add_edge("qualification", "verification")
-    builder.add_edge("verification", END)
+    builder.add_edge("verification", "scoring")
+    builder.add_edge("scoring", END)
     return builder.compile()
 
 
