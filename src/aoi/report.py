@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from .schemas.common import Priority, RunStatus, VerificationStatus
 from .schemas.discovery import Candidate
+from .schemas.intelligence import IntelligenceQualityResult, IntelligenceQualityStatus
 from .schemas.objective import BusinessObjective, OperatorProfile
 from .schemas.qualification import ProspectType, QualificationResult, QualificationStatus
 from .schemas.report import (
@@ -56,6 +57,7 @@ class ReportBuilder:
         qualification_results: list[QualificationResult] | None = None,
         verification_results: list[VerificationResult] | None = None,
         scoring_results: list[ScoringResult] | None = None,
+        quality_results: list[IntelligenceQualityResult] | None = None,
         operator_profile: OperatorProfile | None = None,
         warnings: list[str] | None = None,
         generated_at: datetime | None = None,
@@ -92,6 +94,11 @@ class ReportBuilder:
                 if scoring_results is not None
                 else list(getattr(state, "scoring_results", []))
             )
+            quality_results = (
+                quality_results
+                if quality_results is not None
+                else list(getattr(state, "quality_results", []))
+            )
             warnings = warnings if warnings is not None else list(getattr(state, "warnings", []))
 
         # Defaults for missing metadata
@@ -103,6 +110,7 @@ class ReportBuilder:
         qualification_results = qualification_results or []
         verification_results = verification_results or []
         scoring_results = scoring_results or []
+        quality_results = quality_results or []
         warnings = warnings or []
 
         # Convert objective to dict
@@ -120,6 +128,7 @@ class ReportBuilder:
         research_by_id = {r.candidate_id: r for r in research_results}
         qualification_by_id = {q.candidate_id: q for q in qualification_results}
         verification_by_id = {v.candidate_id: v for v in verification_results}
+        quality_by_id = {q.candidate_id: q for q in quality_results}
 
         # Deterministic sorting of scoring results
         # 1. Priority: HIGH, QUALIFIED, WATCHLIST, DISCARD
@@ -152,6 +161,7 @@ class ReportBuilder:
             research = research_by_id.get(s.candidate_id)
             qual = qualification_by_id.get(s.candidate_id)
             ver = verification_by_id.get(s.candidate_id)
+            qual_res = quality_by_id.get(s.candidate_id)
 
             report_opp = self._build_opportunity(
                 rank=current_rank,
@@ -161,6 +171,7 @@ class ReportBuilder:
                 qualification=qual,
                 verification=ver,
                 operator_profile=operator_profile,
+                quality_result=qual_res,
             )
             current_rank += 1
 
@@ -205,6 +216,8 @@ class ReportBuilder:
             aggregated_warnings.extend(v.verification_warnings)
         for s in scoring_results:
             aggregated_warnings.extend(s.scoring_warnings)
+        for q in quality_results:
+            aggregated_warnings.extend(q.quality_warnings)
 
         deduped_warnings = deduplicate_warnings(aggregated_warnings)
 
@@ -262,6 +275,7 @@ class ReportBuilder:
         qualification: QualificationResult | None,
         verification: VerificationResult | None,
         operator_profile: OperatorProfile | None = None,
+        quality_result: IntelligenceQualityResult | None = None,
     ) -> ReportOpportunity:
         """Construct a validated ReportOpportunity without modifying upstream values."""
         # Website preservation
@@ -342,6 +356,8 @@ class ReportBuilder:
         if verification:
             opp_warnings.extend(verification.verification_warnings)
         opp_warnings.extend(scoring.scoring_warnings)
+        if quality_result:
+            opp_warnings.extend(quality_result.quality_warnings)
         deduped_opp_warnings = deduplicate_warnings(opp_warnings)
 
         # Recommended human action
@@ -349,6 +365,17 @@ class ReportBuilder:
             scoring=scoring,
             qualification=qualification,
             verification=verification,
+        )
+
+        quality = quality_result.quality if quality_result else None
+        narrative = quality_result.narrative if quality_result else None
+        strengths = list(quality_result.strengths) if quality_result else []
+        weaknesses = list(quality_result.weaknesses) if quality_result else []
+        converging_signals = list(quality_result.converging_signals) if quality_result else []
+        quality_status = (
+            IntelligenceQualityStatus.from_score(quality.quality_score)
+            if quality
+            else None
         )
 
         return ReportOpportunity(
@@ -370,6 +397,12 @@ class ReportBuilder:
             scoring_reasons=list(scoring.scoring_reasons),
             warnings=deduped_opp_warnings,
             recommended_action=recommended_action,
+            quality=quality,
+            narrative=narrative,
+            strengths=strengths,
+            weaknesses=weaknesses,
+            converging_signals=converging_signals,
+            quality_status=quality_status,
         )
 
     def _determine_recommended_action(

@@ -1,6 +1,9 @@
 from datetime import datetime
 
+from pydantic import Field
+
 from .common import AOIBaseModel, Priority, RunStatus, SourceType, VerificationStatus
+from .intelligence import IntelligenceQuality, IntelligenceQualityStatus, OpportunityNarrative
 from .qualification import ProspectType, QualificationStatus
 from .scoring import ScoreBreakdown
 
@@ -44,6 +47,13 @@ class ReportOpportunity(AOIBaseModel):
     warnings: list[str]
 
     recommended_action: str
+
+    quality: IntelligenceQuality | None = None
+    narrative: OpportunityNarrative | None = None
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    converging_signals: list[str] = Field(default_factory=list)
+    quality_status: IntelligenceQualityStatus | None = None
 
 
 class ReportStatistics(AOIBaseModel):

@@ -10,6 +10,12 @@ from .common import (
     VerificationStatus,
 )
 from .discovery import Candidate, DiscoveryPlan, DiscoveryStrategy
+from .intelligence import (
+    IntelligenceQuality,
+    IntelligenceQualityResult,
+    IntelligenceQualityStatus,
+    OpportunityNarrative,
+)
 from .objective import AOIInput, BusinessObjective, Constraints, OperatorProfile
 from .opportunity import Company, DecisionMaker, Opportunity, OpportunityScores
 from .qualification import FitLevel, ProspectType, QualificationResult, QualificationStatus
@@ -37,8 +43,12 @@ __all__ = [
     "DiscoveryStrategy",
     "Evidence",
     "FitLevel",
+    "IntelligenceQuality",
+    "IntelligenceQualityResult",
+    "IntelligenceQualityStatus",
     "OperatorProfile",
     "Opportunity",
+    "OpportunityNarrative",
     "OpportunityScores",
     "Priority",
     "ProspectType",

@@ -4,6 +4,7 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 
 from ..agents.discovery import DiscoveryAgent
+from ..agents.intelligence import IntelligenceQualityAgent
 from ..agents.qualification import QualificationAgent
 from ..agents.research import ResearchAgent
 from ..agents.scoring import ScoringAgent
@@ -20,6 +21,7 @@ research_agent = ResearchAgent()
 qualification_agent = QualificationAgent()
 verification_agent = VerificationAgent()
 scoring_agent = ScoringAgent()
+intelligence_quality_agent = IntelligenceQualityAgent()
 report_builder = ReportBuilder()
 
 _discovery_provider = None
@@ -145,6 +147,41 @@ def scoring_node(state: AOIState) -> dict:
     return {"status": RunStatus.SCORING, "scoring_results": results}
 
 
+def intelligence_quality_node(state: AOIState) -> dict:
+    if not state.scoring_results:
+        return {}
+    results = []
+    candidate_by_id = {c.candidate_id: c for c in state.candidates}
+    research_by_id = {r.candidate_id: r for r in state.research_results}
+    qualification_by_id = {q.candidate_id: q for q in state.qualification_results}
+    verification_by_id = {v.candidate_id: v for v in state.verification_results}
+
+    operator_profile = state.input.operator_profile if state.input else None
+    constraints = state.input.constraints if state.input else None
+    objective = state.input.objective if state.input else None
+
+    for scored in state.scoring_results:
+        candidate = candidate_by_id.get(scored.candidate_id)
+        research = research_by_id.get(scored.candidate_id)
+        qual = qualification_by_id.get(scored.candidate_id)
+        ver = verification_by_id.get(scored.candidate_id)
+
+        quality_res = intelligence_quality_agent.evaluate(
+            candidate=candidate,
+            research_result=research,
+            qualification_result=qual,
+            verification_result=ver,
+            scoring_result=scored,
+            objective=objective,
+            operator_profile=operator_profile,
+            constraints=constraints,
+            run_warnings=state.warnings,
+        )
+        results.append(quality_res)
+
+    return {"quality_results": results}
+
+
 def reporting_node(state: AOIState) -> dict:
     prior_status = state.status
     if prior_status in (RunStatus.FAILED, RunStatus.CANCELLED):
@@ -167,13 +204,15 @@ def build_graph():
     builder.add_node("qualification", qualification_node)
     builder.add_node("verification", verification_node)
     builder.add_node("scoring", scoring_node)
+    builder.add_node("intelligence_quality", intelligence_quality_node)
     builder.add_node("reporting", reporting_node)
     builder.add_edge(START, "discovery")
     builder.add_edge("discovery", "research")
     builder.add_edge("research", "qualification")
     builder.add_edge("qualification", "verification")
     builder.add_edge("verification", "scoring")
-    builder.add_edge("scoring", "reporting")
+    builder.add_edge("scoring", "intelligence_quality")
+    builder.add_edge("intelligence_quality", "reporting")
     builder.add_edge("reporting", END)
     return builder.compile()
 

@@ -5,6 +5,7 @@ from pydantic import Field
 
 from ..schemas.common import AOIBaseModel, RunStatus
 from ..schemas.discovery import Candidate, DiscoveryPlan
+from ..schemas.intelligence import IntelligenceQualityResult
 from ..schemas.objective import AOIInput
 from ..schemas.opportunity import Opportunity
 from ..schemas.qualification import QualificationResult
@@ -24,6 +25,7 @@ class AOIState(AOIBaseModel):
     qualification_results: Annotated[list[QualificationResult], operator.add] = Field(default_factory=list)
     verification_results: Annotated[list[VerificationResult], operator.add] = Field(default_factory=list)
     scoring_results: Annotated[list[ScoringResult], operator.add] = Field(default_factory=list)
+    quality_results: Annotated[list[IntelligenceQualityResult], operator.add] = Field(default_factory=list)
     opportunities: Annotated[list[Opportunity], operator.add] = Field(default_factory=list)
     errors: Annotated[list[str], operator.add] = Field(default_factory=list)
     warnings: Annotated[list[str], operator.add] = Field(default_factory=list)
