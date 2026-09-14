@@ -1,0 +1,5 @@
+{
+  "dependencies": ["."],
+  "graphs": {"aoi": "./src/aoi/graph/workflow.py:aoi_graph"},
+  "env": ".env"
+}
