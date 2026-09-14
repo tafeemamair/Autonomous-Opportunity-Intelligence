@@ -7,6 +7,7 @@ from ..agents.qualification import QualificationAgent
 from ..agents.research import ResearchAgent
 from ..agents.scoring import ScoringAgent
 from ..agents.verification import VerificationAgent
+from ..report import ReportBuilder
 from ..schemas.common import RunStatus
 from ..schemas.objective import AOIInput
 from .state import AOIState
@@ -16,6 +17,7 @@ research_agent = ResearchAgent()
 qualification_agent = QualificationAgent()
 verification_agent = VerificationAgent()
 scoring_agent = ScoringAgent()
+report_builder = ReportBuilder()
 
 
 def discovery_node(state: AOIState) -> dict:
@@ -99,6 +101,22 @@ def scoring_node(state: AOIState) -> dict:
     return {"status": RunStatus.SCORING, "scoring_results": results}
 
 
+def reporting_node(state: AOIState) -> dict:
+    prior_status = state.status
+    if prior_status in (RunStatus.FAILED, RunStatus.CANCELLED):
+        final_status = prior_status
+    elif prior_status == RunStatus.PARTIAL:
+        state.status = RunStatus.REPORTING
+        final_status = RunStatus.PARTIAL
+    else:
+        state.status = RunStatus.REPORTING
+        final_status = RunStatus.COMPLETED
+
+    report = report_builder.build(state, status=final_status)
+    return {"status": final_status, "report": report}
+
+
+
 def build_graph():
     builder = StateGraph(AOIState)
     builder.add_node("discovery", discovery_node)
@@ -106,13 +124,16 @@ def build_graph():
     builder.add_node("qualification", qualification_node)
     builder.add_node("verification", verification_node)
     builder.add_node("scoring", scoring_node)
+    builder.add_node("reporting", reporting_node)
     builder.add_edge(START, "discovery")
     builder.add_edge("discovery", "research")
     builder.add_edge("research", "qualification")
     builder.add_edge("qualification", "verification")
     builder.add_edge("verification", "scoring")
-    builder.add_edge("scoring", END)
+    builder.add_edge("scoring", "reporting")
+    builder.add_edge("reporting", END)
     return builder.compile()
+
 
 
 aoi_graph = build_graph()

@@ -396,7 +396,12 @@ def test_graph_executes_qualification_node():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] in (RunStatus.QUALIFYING, RunStatus.VERIFYING, RunStatus.SCORING)
+    assert result["status"] in (
+        RunStatus.QUALIFYING,
+        RunStatus.VERIFYING,
+        RunStatus.SCORING,
+        RunStatus.COMPLETED,
+    )
     assert len(result["qualification_results"]) == 1
     assert result["qualification_results"][0].company_name == "RoboNav"
     assert result["qualification_results"][0].qualification_status in (
@@ -410,7 +415,7 @@ def test_graph_runs_without_external_services_and_handles_empty():
     state = create_initial_state(input_data)
     result = aoi_graph.invoke(state)
 
-    assert result["status"] == RunStatus.DISCOVERING
+    assert result["status"] in (RunStatus.DISCOVERING, RunStatus.COMPLETED)
     assert result["discovery_plan"] is not None
     assert len(result["discovery_plan"].strategies) == 5
     assert len(result["qualification_results"]) == 0

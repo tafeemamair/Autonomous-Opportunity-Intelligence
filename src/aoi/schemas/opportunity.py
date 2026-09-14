@@ -43,25 +43,3 @@ class Opportunity(AOIBaseModel):
     recommended_action: str = "Human review"
     status: str = "NEW"
 
-
-class ReportSummary(AOIBaseModel):
-    candidates_discovered: int = 0
-    candidates_after_deduplication: int = 0
-    qualified_opportunities: int = 0
-    high_priority_opportunities: int = 0
-
-
-class RunQuality(AOIBaseModel):
-    overall_confidence: float = Field(default=0, ge=0, le=100)
-    verification_rate: float = Field(default=0, ge=0, le=100)
-    source_quality: float = Field(default=0, ge=0, le=100)
-
-
-class AOIReport(AOIBaseModel):
-    run_id: str
-    generated_at: str
-    objective: dict
-    summary: ReportSummary
-    opportunities: list[Opportunity] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    run_quality: RunQuality = Field(default_factory=RunQuality)

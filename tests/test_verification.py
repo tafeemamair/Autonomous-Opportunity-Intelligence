@@ -532,7 +532,7 @@ def test_graph_executes_verification_node():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] in (RunStatus.VERIFYING, RunStatus.SCORING)
+    assert result["status"] in (RunStatus.VERIFYING, RunStatus.SCORING, RunStatus.COMPLETED)
     assert len(result["verification_results"]) == 1
     assert result["verification_results"][0].company_name == "RoboNav"
 
@@ -550,7 +550,8 @@ def test_graph_works_without_external_services():
     state = create_initial_state(input_data)
     final_state = aoi_graph.invoke(state)
     assert final_state["verification_results"] == []
-    assert final_state["status"] == RunStatus.DISCOVERING
+    assert final_state["status"] in (RunStatus.DISCOVERING, RunStatus.COMPLETED)
+
 
 
 # 21. Bedrock Ocean Exploration canonical acceptance scenario

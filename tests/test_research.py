@@ -301,7 +301,13 @@ def test_graph_executes_research_node_with_candidates():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] in (RunStatus.RESEARCHING, RunStatus.QUALIFYING, RunStatus.VERIFYING, RunStatus.SCORING)
+    assert result["status"] in (
+        RunStatus.RESEARCHING,
+        RunStatus.QUALIFYING,
+        RunStatus.VERIFYING,
+        RunStatus.SCORING,
+        RunStatus.COMPLETED,
+    )
     assert len(result["research_results"]) == 1
     assert result["research_results"][0].company_name == "RoboNav"
 

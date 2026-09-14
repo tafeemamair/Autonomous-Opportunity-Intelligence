@@ -525,7 +525,7 @@ def test_graph_executes_scoring_without_external_services():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] == RunStatus.SCORING
+    assert result["status"] in (RunStatus.SCORING, RunStatus.COMPLETED)
     assert len(result["scoring_results"]) == 1
     scored = result["scoring_results"][0]
     assert scored.company_name == "RoboNav"

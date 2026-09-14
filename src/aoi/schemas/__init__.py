@@ -11,8 +11,15 @@ from .common import (
 )
 from .discovery import Candidate, DiscoveryPlan, DiscoveryStrategy
 from .objective import AOIInput, BusinessObjective, Constraints, OperatorProfile
-from .opportunity import AOIReport, Company, DecisionMaker, Opportunity, OpportunityScores
+from .opportunity import Company, DecisionMaker, Opportunity, OpportunityScores
 from .qualification import FitLevel, ProspectType, QualificationResult, QualificationStatus
+from .report import (
+    AOIReport,
+    ReportEvidence,
+    ReportOpportunity,
+    ReportStatistics,
+    ReportSummary,
+)
 from .research import ResearchResult, ResearchStatus
 from .scoring import ScoreBreakdown, ScoringResult
 from .verification import VerificationClaim, VerificationResult
@@ -37,6 +44,10 @@ __all__ = [
     "ProspectType",
     "QualificationResult",
     "QualificationStatus",
+    "ReportEvidence",
+    "ReportOpportunity",
+    "ReportStatistics",
+    "ReportSummary",
     "ResearchResult",
     "ResearchStatus",
     "RunStatus",
