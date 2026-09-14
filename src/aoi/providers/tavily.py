@@ -13,6 +13,7 @@ from ..config import get_settings
 from ..schemas.common import SourceType
 from ..schemas.discovery import Candidate, DiscoveryPlan
 from .discovery import DiscoveryProvider
+from .research import ResearchItem, ResearchProvider
 
 logger = logging.getLogger(__name__)
 
@@ -621,3 +622,121 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
         if strategy_name == "product_signals":
             return SourceType.OFFICIAL_ANNOUNCEMENT
         return SourceType.COMPANY_WEBSITE
+
+
+class TavilyResearchProvider(ResearchProvider):
+    """Tavily search implementation of ResearchProvider.
+
+    Executes focused research queries against the Tavily API and returns
+    normalized ResearchItem records for evidence extraction.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str = TavilyDiscoveryProvider.DEFAULT_BASE_URL,
+        max_retries: int = 3,
+        backoff_factor: float = 0.5,
+        timeout: float = 15.0,
+        client: httpx.Client | None = None,
+    ):
+        settings = get_settings()
+        resolved_key = (
+            api_key
+            or settings.tavily_api_key
+            or os.getenv("TAVILY_API_KEY")
+            or os.getenv("AOI_TAVILY_API_KEY")
+        )
+        self.api_key = resolved_key
+        self.base_url = base_url.rstrip("/")
+        self.max_retries = max_retries
+        self.backoff_factor = backoff_factor
+        self.timeout = timeout
+        self._custom_client = client
+        self._internal_client: httpx.Client | None = None
+
+    @property
+    def client(self) -> httpx.Client:
+        if self._custom_client is not None:
+            return self._custom_client
+        if self._internal_client is None:
+            self._internal_client = httpx.Client(timeout=self.timeout)
+        return self._internal_client
+
+    def close(self) -> None:
+        if self._internal_client is not None:
+            self._internal_client.close()
+            self._internal_client = None
+
+    def __enter__(self) -> "TavilyResearchProvider":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def search(self, query: str, max_results: int = 5) -> list[ResearchItem]:
+        """Execute a research search query and return normalized ResearchItem records."""
+        if not self.api_key:
+            raise TavilyConfigurationError(
+                "Tavily API key is missing. Set TAVILY_API_KEY in the environment or .env file."
+            )
+
+        endpoint = f"{self.base_url}/search"
+        payload = {
+            "api_key": self.api_key,
+            "query": query,
+            "search_depth": "basic",
+            "max_results": max_results,
+            "include_answer": False,
+        }
+
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.client.post(endpoint, json=payload)
+                if response.status_code == 200:
+                    data = response.json()
+                    raw_results = data.get("results", [])
+                    items: list[ResearchItem] = []
+                    for res in raw_results:
+                        url_str = res.get("url")
+                        if not url_str:
+                            continue
+                        try:
+                            val_url = HttpUrl(url_str)
+                        except Exception:
+                            continue
+                        items.append(
+                            ResearchItem(
+                                title=res.get("title", ""),
+                                url=val_url,
+                                content=res.get("content", ""),
+                                published_date=res.get("published_date"),
+                                score=float(res.get("score") or 0.0),
+                            )
+                        )
+                    return items
+
+                if response.status_code in (401, 403):
+                    raise TavilyAuthenticationError(
+                        f"Tavily authentication failed ({response.status_code}): {response.text}"
+                    )
+
+                if response.status_code == 429 or response.status_code >= 500:
+                    last_error = TavilyTransientError(
+                        f"Tavily transient HTTP {response.status_code}: {response.text}"
+                    )
+                else:
+                    raise TavilyProviderError(
+                        f"Tavily query failed ({response.status_code}): {response.text}"
+                    )
+
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                last_error = TavilyTransientError(f"Tavily network error: {exc}")
+
+            if attempt < self.max_retries:
+                sleep_time = self.backoff_factor * (2**attempt)
+                time.sleep(sleep_time)
+
+        raise last_error or TavilyProviderError("Tavily request failed after retries")
+

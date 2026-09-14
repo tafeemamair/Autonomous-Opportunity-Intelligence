@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -62,6 +63,7 @@ class Source(AOIBaseModel):
 
 
 class Evidence(AOIBaseModel):
+    id: str = Field(default_factory=lambda: f"ev-{uuid4().hex[:8]}")
     claim: str = Field(min_length=1)
     source: Source
     evidence_summary: str = Field(min_length=1)
