@@ -396,7 +396,7 @@ def test_graph_executes_qualification_node():
 
     result = aoi_graph.invoke(state)
 
-    assert result["status"] == RunStatus.QUALIFYING
+    assert result["status"] in (RunStatus.QUALIFYING, RunStatus.VERIFYING)
     assert len(result["qualification_results"]) == 1
     assert result["qualification_results"][0].company_name == "RoboNav"
     assert result["qualification_results"][0].qualification_status in (

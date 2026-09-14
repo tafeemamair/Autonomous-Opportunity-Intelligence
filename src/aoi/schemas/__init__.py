@@ -14,6 +14,7 @@ from .objective import AOIInput, BusinessObjective, Constraints, OperatorProfile
 from .opportunity import AOIReport, Company, DecisionMaker, Opportunity, OpportunityScores
 from .qualification import FitLevel, ProspectType, QualificationResult, QualificationStatus
 from .research import ResearchResult, ResearchStatus
+from .verification import VerificationClaim, VerificationResult
 
 __all__ = [
     "AOIBaseModel",
@@ -40,5 +41,7 @@ __all__ = [
     "RunStatus",
     "Source",
     "SourceType",
+    "VerificationClaim",
+    "VerificationResult",
     "VerificationStatus",
 ]

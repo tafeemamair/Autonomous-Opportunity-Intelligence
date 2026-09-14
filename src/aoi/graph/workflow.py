@@ -5,6 +5,7 @@ from langgraph.graph import END, START, StateGraph
 from ..agents.discovery import DiscoveryAgent
 from ..agents.qualification import QualificationAgent
 from ..agents.research import ResearchAgent
+from ..agents.verification import VerificationAgent
 from ..schemas.common import RunStatus
 from ..schemas.objective import AOIInput
 from .state import AOIState
@@ -12,6 +13,7 @@ from .state import AOIState
 discovery_agent = DiscoveryAgent()
 research_agent = ResearchAgent()
 qualification_agent = QualificationAgent()
+verification_agent = VerificationAgent()
 
 
 def discovery_node(state: AOIState) -> dict:
@@ -48,15 +50,38 @@ def qualification_node(state: AOIState) -> dict:
     return {"status": RunStatus.QUALIFYING, "qualification_results": results}
 
 
+def verification_node(state: AOIState) -> dict:
+    if not state.research_results or not state.qualification_results:
+        return {}
+    results = []
+    candidate_by_id = {c.candidate_id: c for c in state.candidates}
+    research_by_id = {r.candidate_id: r for r in state.research_results}
+    for qual in state.qualification_results:
+        candidate = candidate_by_id.get(qual.candidate_id)
+        research = research_by_id.get(qual.candidate_id)
+        if candidate and research:
+            ver = verification_agent.verify(
+                candidate=candidate,
+                research_result=research,
+                qualification_result=qual,
+                objective=state.input.objective,
+                constraints=state.input.constraints,
+            )
+            results.append(ver)
+    return {"status": RunStatus.VERIFYING, "verification_results": results}
+
+
 def build_graph():
     builder = StateGraph(AOIState)
     builder.add_node("discovery", discovery_node)
     builder.add_node("research", research_node)
     builder.add_node("qualification", qualification_node)
+    builder.add_node("verification", verification_node)
     builder.add_edge(START, "discovery")
     builder.add_edge("discovery", "research")
     builder.add_edge("research", "qualification")
-    builder.add_edge("qualification", END)
+    builder.add_edge("qualification", "verification")
+    builder.add_edge("verification", END)
     return builder.compile()
 
 
