@@ -5,7 +5,6 @@ from ..schemas.common import SourceType
 from ..schemas.discovery import Candidate, DiscoveryPlan, DiscoveryStrategy
 from ..schemas.objective import AOIInput
 
-
 DEFAULT_STRATEGIES = {
     "hiring_signals": (
         "Find current hiring signals that indicate demand for AI, automation, workflow, agent, or engineering capabilities.",

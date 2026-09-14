@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test and Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+
+      - name: Compile validation
+        run: |
+          python -m compileall src tests
+
+      - name: Import validation
+        run: |
+          python -c "import aoi; import aoi.agents.discovery; import aoi.db.models; import aoi.graph.workflow; import aoi.schemas.objective; print('Core modules imported successfully')"
+
+      - name: Lint with ruff
+        run: |
+          ruff check .
+
+      - name: Run tests with pytest
+        run: |
+          pytest

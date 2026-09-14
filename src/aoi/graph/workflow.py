@@ -7,7 +7,6 @@ from ..schemas.common import RunStatus
 from ..schemas.objective import AOIInput
 from .state import AOIState
 
-
 discovery_agent = DiscoveryAgent()
 
 
