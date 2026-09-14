@@ -1,3 +1,4 @@
+import logging
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
@@ -12,6 +13,8 @@ from ..schemas.common import RunStatus
 from ..schemas.objective import AOIInput
 from .state import AOIState
 
+logger = logging.getLogger(__name__)
+
 discovery_agent = DiscoveryAgent()
 research_agent = ResearchAgent()
 qualification_agent = QualificationAgent()
@@ -19,10 +22,51 @@ verification_agent = VerificationAgent()
 scoring_agent = ScoringAgent()
 report_builder = ReportBuilder()
 
+_discovery_provider = None
+
+
+def set_discovery_provider(provider) -> None:
+    """Explicitly inject a discovery provider (for testing or custom providers)."""
+    global _discovery_provider
+    _discovery_provider = provider
+
+
+def get_discovery_provider():
+    """Retrieve the explicitly configured discovery provider."""
+    global _discovery_provider
+    return _discovery_provider
+
 
 def discovery_node(state: AOIState) -> dict:
     plan = discovery_agent.plan(state.input)
-    return {"status": RunStatus.DISCOVERING, "discovery_plan": plan}
+    update = {"status": RunStatus.DISCOVERING, "discovery_plan": plan}
+
+    # If candidates were already pre-seeded in state, preserve them
+    if state.candidates:
+        return update
+
+    provider = get_discovery_provider()
+    if provider is None:
+        warning_msg = (
+            "Discovery provider configuration unavailable (missing API key or credentials)."
+        )
+        update["warnings"] = [warning_msg]
+        return update
+
+    try:
+        candidates = provider.discover(plan)
+        if candidates:
+            update["candidates"] = candidates
+        else:
+            update["warnings"] = ["Discovery provider executed but returned 0 candidates."]
+    except Exception as exc:
+        error_msg = f"Discovery execution failed: {exc}"
+        logger.warning(error_msg)
+        update["warnings"] = [error_msg]
+        update["errors"] = [error_msg]
+        update["status"] = RunStatus.PARTIAL
+
+    return update
 
 
 def research_node(state: AOIState) -> dict:
@@ -116,7 +160,6 @@ def reporting_node(state: AOIState) -> dict:
     return {"status": final_status, "report": report}
 
 
-
 def build_graph():
     builder = StateGraph(AOIState)
     builder.add_node("discovery", discovery_node)
@@ -133,7 +176,6 @@ def build_graph():
     builder.add_edge("scoring", "reporting")
     builder.add_edge("reporting", END)
     return builder.compile()
-
 
 
 aoi_graph = build_graph()
