@@ -1,6 +1,7 @@
 from pydantic import Field
 
 from .common import AOIBaseModel
+from .discovery import DiscoveryBudget
 
 
 class OperatorProfile(AOIBaseModel):
@@ -13,6 +14,7 @@ class Constraints(AOIBaseModel):
     recency_days: int = Field(default=90, ge=1, le=3650)
     require_evidence: bool = True
     require_human_approval: bool = True
+    discovery_budget: DiscoveryBudget = Field(default_factory=DiscoveryBudget)
 
 
 class BusinessObjective(AOIBaseModel):

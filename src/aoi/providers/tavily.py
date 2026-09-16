@@ -11,7 +11,7 @@ from pydantic import HttpUrl
 
 from ..config import get_settings
 from ..schemas.common import SourceType
-from ..schemas.discovery import Candidate, DiscoveryPlan
+from ..schemas.discovery import Candidate, DiscoveryBudget, DiscoveryPlan
 from .discovery import DiscoveryProvider
 from .research import ResearchItem, ResearchProvider
 
@@ -223,19 +223,37 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
-    def discover(self, plan: DiscoveryPlan) -> list[Candidate]:
-        """Execute discovery queries for each strategy in the plan and return normalized Candidates."""
+    def discover(
+        self,
+        plan: DiscoveryPlan,
+        budget: DiscoveryBudget | None = None,
+    ) -> list[Candidate]:
+        """Execute discovery queries for each strategy in the plan and return normalized Candidates bounded by budget."""
         if not self.api_key:
             raise TavilyConfigurationError(
                 "Tavily API key is missing. Set TAVILY_API_KEY in the environment or .env file."
             )
 
+        resolved_budget = budget or plan.budget or DiscoveryBudget(
+            max_results_per_query=self.max_results_per_query,
+        )
+
         candidates_by_key: dict[str, Candidate] = {}
+        queries_executed = 0
 
         for strategy in plan.strategies:
+            if queries_executed >= resolved_budget.max_queries:
+                break
+
             for query in strategy.query_templates:
+                if queries_executed >= resolved_budget.max_queries:
+                    break
+
+                queries_executed += 1
                 try:
-                    search_response = self._search_with_retry(query)
+                    search_response = self._search_with_retry(
+                        query, max_results=resolved_budget.max_results_per_query
+                    )
                 except TavilyAuthenticationError:
                     raise
                 except Exception as exc:
@@ -259,16 +277,17 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
                         candidates_by_key=candidates_by_key,
                     )
 
-        return list(candidates_by_key.values())
+        all_candidates = list(candidates_by_key.values())
+        return all_candidates[:resolved_budget.max_candidates]
 
-    def _search_with_retry(self, query: str) -> dict:
+    def _search_with_retry(self, query: str, max_results: int | None = None) -> dict:
         """Execute a Tavily search query with exponential backoff on transient errors."""
         endpoint = f"{self.base_url}/search"
         payload = {
             "api_key": self.api_key,
             "query": query,
             "search_depth": "basic",
-            "max_results": self.max_results_per_query,
+            "max_results": max_results or self.max_results_per_query,
             "include_answer": False,
         }
 
@@ -341,6 +360,7 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
         if snippet:
             reason = f"{reason} Snippet: {snippet}"
 
+        signal_cat = strategy_name.replace("_signals", "").replace("_signal", "")
         if dedup_key in candidates_by_key:
             existing = candidates_by_key[dedup_key]
             if validated_source_url not in existing.source_urls:
@@ -348,7 +368,13 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
                 existing.source_types.append(source_type)
             if existing.website is None and website is not None:
                 existing.website = website
+                existing.domain = website.host.lower().removeprefix("www.")
+            if signal_cat and signal_cat not in existing.signal_categories:
+                existing.signal_categories.append(signal_cat)
+            if reason not in existing.discovery_reasons:
+                existing.discovery_reasons.append(reason)
         else:
+            domain = website.host.lower().removeprefix("www.") if website else None
             candidate = Candidate(
                 candidate_id=f"cand_{uuid4().hex[:12]}",
                 company_name=company_name,
@@ -359,6 +385,10 @@ class TavilyDiscoveryProvider(DiscoveryProvider):
                 source_urls=[validated_source_url],
                 source_types=[source_type],
                 discovered_at=datetime.now(UTC),
+                normalized_name=re.sub(r"[^a-z0-9]", "", company_name.lower()),
+                domain=domain,
+                signal_categories=[signal_cat] if signal_cat else [],
+                discovery_reasons=[reason],
             )
             candidates_by_key[dedup_key] = candidate
 

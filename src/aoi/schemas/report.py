@@ -3,8 +3,10 @@ from datetime import datetime
 from pydantic import Field
 
 from .common import AOIBaseModel, Priority, RunStatus, SourceType, VerificationStatus
+from .discovery import DiscoveryEvaluation
 from .intelligence import IntelligenceQuality, IntelligenceQualityStatus, OpportunityNarrative
 from .qualification import ProspectType, QualificationStatus
+from .research import ResearchEvaluation
 from .scoring import ScoreBreakdown
 
 
@@ -67,6 +69,13 @@ class ReportStatistics(AOIBaseModel):
     qualified_priority: int
     watchlist_priority: int
     discard_priority: int
+
+    discovery_evaluation: DiscoveryEvaluation | None = None
+    research_evaluation: ResearchEvaluation | None = None
+    queries_executed: int = 0
+    queries_saved: int = 0
+    cost_savings_percentage: float = 0.0
+    multi_signal_candidates: int = 0
 
 
 class ReportSummary(AOIBaseModel):

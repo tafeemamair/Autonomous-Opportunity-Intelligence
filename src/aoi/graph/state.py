@@ -4,13 +4,13 @@ from typing import Annotated
 from pydantic import Field
 
 from ..schemas.common import AOIBaseModel, RunStatus
-from ..schemas.discovery import Candidate, DiscoveryPlan
+from ..schemas.discovery import Candidate, DiscoveryEvaluation, DiscoveryPlan
 from ..schemas.intelligence import IntelligenceQualityResult
 from ..schemas.objective import AOIInput
 from ..schemas.opportunity import Opportunity
 from ..schemas.qualification import QualificationResult
 from ..schemas.report import AOIReport
-from ..schemas.research import ResearchResult
+from ..schemas.research import ResearchEvaluation, ResearchResult
 from ..schemas.scoring import ScoringResult
 from ..schemas.verification import VerificationResult
 
@@ -27,6 +27,8 @@ class AOIState(AOIBaseModel):
     scoring_results: Annotated[list[ScoringResult], operator.add] = Field(default_factory=list)
     quality_results: Annotated[list[IntelligenceQualityResult], operator.add] = Field(default_factory=list)
     opportunities: Annotated[list[Opportunity], operator.add] = Field(default_factory=list)
+    discovery_evaluation: DiscoveryEvaluation | None = None
+    research_evaluation: ResearchEvaluation | None = None
     errors: Annotated[list[str], operator.add] = Field(default_factory=list)
     warnings: Annotated[list[str], operator.add] = Field(default_factory=list)
     report: AOIReport | None = None

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from .schemas.common import Priority, RunStatus, VerificationStatus
-from .schemas.discovery import Candidate
+from .schemas.discovery import Candidate, DiscoveryEvaluation
 from .schemas.intelligence import IntelligenceQualityResult, IntelligenceQualityStatus
 from .schemas.objective import BusinessObjective, OperatorProfile
 from .schemas.qualification import ProspectType, QualificationResult, QualificationStatus
@@ -12,7 +12,7 @@ from .schemas.report import (
     ReportStatistics,
     ReportSummary,
 )
-from .schemas.research import ResearchResult
+from .schemas.research import ResearchEvaluation, ResearchResult
 from .schemas.scoring import ScoringResult
 from .schemas.verification import VerificationResult
 
@@ -58,6 +58,8 @@ class ReportBuilder:
         verification_results: list[VerificationResult] | None = None,
         scoring_results: list[ScoringResult] | None = None,
         quality_results: list[IntelligenceQualityResult] | None = None,
+        discovery_evaluation: DiscoveryEvaluation | None = None,
+        research_evaluation: ResearchEvaluation | None = None,
         operator_profile: OperatorProfile | None = None,
         warnings: list[str] | None = None,
         generated_at: datetime | None = None,
@@ -99,6 +101,8 @@ class ReportBuilder:
                 if quality_results is not None
                 else list(getattr(state, "quality_results", []))
             )
+            discovery_evaluation = discovery_evaluation or getattr(state, "discovery_evaluation", None)
+            research_evaluation = research_evaluation or getattr(state, "research_evaluation", None)
             warnings = warnings if warnings is not None else list(getattr(state, "warnings", []))
 
         # Defaults for missing metadata
@@ -193,6 +197,12 @@ class ReportBuilder:
         ]
         discard_count = sum(1 for s in scoring_results if s.scores.priority == Priority.DISCARD) + len(unscored_disqualified)
 
+        queries_exec = sum(r.queries_executed for r in research_results)
+        queries_sav = sum(r.queries_saved for r in research_results)
+        total_q = queries_exec + queries_sav
+        cost_savings = round((queries_sav / max(total_q, 1)) * 100.0, 1)
+        multi_sig_cands = sum(1 for c in candidates if len(set(c.signal_categories)) >= 2)
+
         statistics = ReportStatistics(
             candidates_discovered=len(candidates),
             candidates_researched=len(research_results),
@@ -203,6 +213,12 @@ class ReportBuilder:
             qualified_priority=qualified_count,
             watchlist_priority=watchlist_count,
             discard_priority=discard_count,
+            discovery_evaluation=discovery_evaluation,
+            research_evaluation=research_evaluation,
+            queries_executed=queries_exec,
+            queries_saved=queries_sav,
+            cost_savings_percentage=cost_savings,
+            multi_signal_candidates=multi_sig_cands,
         )
 
         # Aggregate warnings deterministically

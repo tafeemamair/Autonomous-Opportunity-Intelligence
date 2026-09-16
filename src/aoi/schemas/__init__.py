@@ -9,7 +9,14 @@ from .common import (
     SourceType,
     VerificationStatus,
 )
-from .discovery import Candidate, DiscoveryPlan, DiscoveryStrategy
+from .discovery import (
+    Candidate,
+    CandidateResearchPriority,
+    DiscoveryBudget,
+    DiscoveryEvaluation,
+    DiscoveryPlan,
+    DiscoveryStrategy,
+)
 from .intelligence import (
     IntelligenceQuality,
     IntelligenceQualityResult,
@@ -26,7 +33,12 @@ from .report import (
     ReportStatistics,
     ReportSummary,
 )
-from .research import ResearchResult, ResearchStatus
+from .research import (
+    ResearchEvaluation,
+    ResearchQuality,
+    ResearchResult,
+    ResearchStatus,
+)
 from .scoring import ScoreBreakdown, ScoringResult
 from .verification import VerificationClaim, VerificationResult
 
@@ -36,9 +48,12 @@ __all__ = [
     "AOIReport",
     "BusinessObjective",
     "Candidate",
+    "CandidateResearchPriority",
     "Company",
     "Constraints",
     "DecisionMaker",
+    "DiscoveryBudget",
+    "DiscoveryEvaluation",
     "DiscoveryPlan",
     "DiscoveryStrategy",
     "Evidence",
@@ -58,6 +73,8 @@ __all__ = [
     "ReportOpportunity",
     "ReportStatistics",
     "ReportSummary",
+    "ResearchEvaluation",
+    "ResearchQuality",
     "ResearchResult",
     "ResearchStatus",
     "RunStatus",

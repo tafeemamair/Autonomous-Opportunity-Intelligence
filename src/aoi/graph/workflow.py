@@ -11,6 +11,7 @@ from ..agents.scoring import ScoringAgent
 from ..agents.verification import VerificationAgent
 from ..report import ReportBuilder
 from ..schemas.common import RunStatus
+from ..schemas.discovery import DiscoveryBudget
 from ..schemas.objective import AOIInput
 from .state import AOIState
 
@@ -40,11 +41,16 @@ def get_discovery_provider():
 
 
 def discovery_node(state: AOIState) -> dict:
-    plan = discovery_agent.plan(state.input)
+    budget = getattr(state.input.constraints, "discovery_budget", None) or DiscoveryBudget()
+    plan = discovery_agent.plan(state.input, budget=budget)
     update = {"status": RunStatus.DISCOVERING, "discovery_plan": plan}
 
-    # If candidates were already pre-seeded in state, preserve them
+    # If candidates were already pre-seeded in state, preserve them and compute discovery evaluation
     if state.candidates:
+        eval_res = discovery_agent.evaluate_discovery(
+            len(state.candidates), state.candidates, plan=plan
+        )
+        update["discovery_evaluation"] = eval_res
         return update
 
     provider = get_discovery_provider()
@@ -56,11 +62,33 @@ def discovery_node(state: AOIState) -> dict:
         return update
 
     try:
-        candidates = provider.discover(plan)
-        if candidates:
-            update["candidates"] = candidates
+        try:
+            raw_candidates = provider.discover(plan, budget=plan.budget)
+        except TypeError:
+            raw_candidates = provider.discover(plan)
+        if raw_candidates:
+            deduped = discovery_agent.deduplicate_candidates(
+                raw_candidates, objective=state.input.objective
+            )
+            prioritized = discovery_agent.prioritize_candidates(
+                deduped, objective=state.input.objective
+            )
+            # Enforce max_candidates cap after deduplication & prioritization
+            retained = prioritized[:plan.budget.max_candidates]
+            if len(prioritized) > plan.budget.max_candidates:
+                msg = f"Discovery budget candidate ceiling reached: retained {len(retained)} of {len(prioritized)} candidates."
+                update["warnings"] = list(state.warnings) + [msg]
+
+            eval_res = discovery_agent.evaluate_discovery(
+                len(raw_candidates), retained, plan=plan
+            )
+            update["candidates"] = retained
+            update["discovery_evaluation"] = eval_res
         else:
             update["warnings"] = ["Discovery provider executed but returned 0 candidates."]
+            update["discovery_evaluation"] = discovery_agent.evaluate_discovery(
+                0, [], plan=plan
+            )
     except Exception as exc:
         error_msg = f"Discovery execution failed: {exc}"
         logger.warning(error_msg)
@@ -74,11 +102,19 @@ def discovery_node(state: AOIState) -> dict:
 def research_node(state: AOIState) -> dict:
     if not state.candidates:
         return {}
+    prioritized_cands = discovery_agent.prioritize_candidates(
+        state.candidates, objective=state.input.objective
+    )
     results = []
-    for cand in state.candidates:
+    for cand in prioritized_cands:
         res = research_agent.research(cand)
         results.append(res)
-    return {"status": RunStatus.RESEARCHING, "research_results": results}
+    eval_res = research_agent.evaluate_research(results)
+    return {
+        "status": RunStatus.RESEARCHING,
+        "research_results": results,
+        "research_evaluation": eval_res,
+    }
 
 
 def qualification_node(state: AOIState) -> dict:
