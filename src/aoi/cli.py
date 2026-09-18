@@ -12,6 +12,7 @@ import os
 
 from .agents.discovery import DiscoveryAgent
 from .config import get_settings
+from .providers.exa import ExaDiscoveryProvider
 from .providers.tavily import TavilyConfigurationError, TavilyDiscoveryProvider, TavilyProviderError
 from .runner import AOIRunner, ObjectiveValidationError, RunResult, load_objective
 from .schemas.common import RunStatus
@@ -95,10 +96,19 @@ def handle_run(
         print(f"[ERROR] Could not load objective: {err}", file=sys.stderr)
         return 1
 
-    # In real operator runs (outside automated test runners), construct the configured Tavily discovery provider
+    # In real operator runs, keep Tavily as the default and allow Exa explicitly
+    # without changing the pipeline or provider boundary.
     if discovery_provider is None and "PYTEST_CURRENT_TEST" not in os.environ:
         settings = get_settings()
-        if (
+        provider_name = os.getenv("AOI_DISCOVERY_PROVIDER", "tavily").lower()
+
+        if provider_name == "exa":
+            if settings.exa_api_key or os.getenv("EXA_API_KEY") or os.getenv("AOI_EXA_API_KEY"):
+                try:
+                    discovery_provider = ExaDiscoveryProvider()
+                except Exception as exc:
+                    print(f"[WARN] Could not initialize Exa provider: {exc}", file=sys.stderr)
+        elif (
             settings.tavily_api_key
             or os.getenv("TAVILY_API_KEY")
             or os.getenv("AOI_TAVILY_API_KEY")
