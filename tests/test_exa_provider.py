@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
+from aoi.agents.discovery import DiscoveryAgent
 from aoi.providers.exa import (
     ExaAuthenticationError,
     ExaConfigurationError,
     ExaDiscoveryProvider,
 )
 from aoi.schemas.discovery import DiscoveryPlan, DiscoveryStrategy
-from aoi.agents.discovery import DiscoveryAgent
 from aoi.schemas.objective import AOIInput, BusinessObjective
 
 
